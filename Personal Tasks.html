@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal Tasks</title>
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --panel-bg: #fff;
+      --border: #d1d5db;
+      --text: #374151;
+      --text-muted: #6b7280;
+      --prio-high-border: #ef4444;
+      --prio-med-border: #f59e0b;
+      --prio-low-border: #8b5cf6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 40px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1800px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      padding: 16px;
+      border: 1px solid var(--border);
+      background: var(--panel-bg);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      font-size: 1.2rem;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    button, .back-link {
+      min-height: 36px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      text-decoration: none;
+    }
+
+    #editToggle[aria-pressed="true"] {
+      border-color: #2563eb;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .todo-input-group {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto auto auto auto auto;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .todo-input-group input {
+      min-width: 0;
+      padding: 8px;
+      border: 1px solid var(--border);
+      font: inherit;
+    }
+
+    .priority-buttons {
+      display: flex;
+      gap: 5px;
+    }
+
+    .priority-buttons button {
+      min-width: 72px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .priority-buttons button[aria-pressed="true"] {
+      outline: 2px solid currentColor;
+      outline-offset: 1px;
+    }
+    .difficulty-input,
+    .anxiety-input,
+    .urgency-input,
+    .task-sort {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+    }
+    .difficulty-input select,
+    .anxiety-input select,
+    .urgency-input select,
+    .task-sort select {
+      min-width: 0;
+      padding: 6px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+    }
+    .difficulty-input select { flex: 1; }
+    .anxiety-input select { flex: 1; }
+    .urgency-input select { flex: 1; }
+    .task-sort { margin: 0 0 12px; }
+
+    .btn-low { border-color: var(--prio-low-border); background: #ede9fe; color: #5b21b6; }
+    .btn-medium { border-color: var(--prio-med-border); background: #fef3c7; color: #92400e; }
+    .btn-high { border-color: var(--prio-high-border); background: #fee2e2; color: #991b1b; }
+    .add-task-btn { border-color: #2563eb; background: #2563eb; color: #fff; font-weight: 600; }
+
+    .task-columns {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .task-column {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--border);
+      background: #f9fafb;
+    }
+
+    .task-column[data-priority="red"] { border-top-color: var(--prio-high-border); }
+    .task-column[data-priority="orange"] { border-top-color: var(--prio-med-border); }
+    .task-column[data-priority="green"] { border-top-color: var(--prio-low-border); }
+
+    .task-column h2 {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+    }
+
+    .task-column[data-priority="red"] h2 { color: #991b1b; }
+    .task-column[data-priority="orange"] h2 { color: #92400e; }
+    .task-column[data-priority="green"] h2 { color: #5b21b6; }
+
+    .empty-message {
+      margin: 6px 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .task-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+      padding: 9px;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--border);
+      background: #fff;
+    }
+
+    .task-row[data-priority="red"] { border-left-color: var(--prio-high-border); }
+    .task-row[data-priority="orange"] { border-left-color: var(--prio-med-border); }
+    .task-row[data-priority="green"] { border-left-color: var(--prio-low-border); }
+    .task-row.done { opacity: 0.62; }
+    .task-row.drop-before { box-shadow: inset 0 3px #2563eb; }
+    .task-row.drop-after { box-shadow: inset 0 -3px #2563eb; }
+
+    .task-row input[type="checkbox"] { margin-top: 3px; }
+
+    .task-label {
+      min-width: 0;
+      flex: 1;
+      overflow-wrap: anywhere;
+    }
+
+    .task-row.done .task-label { text-decoration: line-through; }
+    .task-difficulty {
+      flex: 0 0 auto;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .task-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+    }
+
+    .task-priority {
+      padding: 4px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+    }
+    .task-difficulty-select {
+      width: 48px;
+      padding: 4px 2px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+    }
+    .task-anxiety-select {
+      width: 48px;
+      padding: 4px 2px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+    }
+    .task-urgency-select {
+      width: 48px;
+      padding: 4px 2px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+    }
+
+    .drag-handle, .move-task {
+      min-width: 30px;
+      padding: 3px 6px;
+    }
+
+    .drag-handle { cursor: grab; }
+    .move-task:disabled { cursor: default; opacity: 0.4; }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 1100px) {
+      .todo-input-group { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .todo-input-group > input[type="text"] { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 900px) {
+      body { padding: 20px; }
+      .task-columns { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 12px; }
+      .panel-header { align-items: flex-start; flex-direction: column; }
+      .todo-input-group { grid-template-columns: 1fr; }
+      .priority-buttons button { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="panel" aria-labelledby="pageHeading">
+      <h1 class="panel-header" id="pageHeading">
+        Personal Tasks
+        <span class="header-actions">
+          <a class="back-link" href="Work to do.html">← Work checklist</a>
+          <button id="editToggle" type="button" aria-pressed="false">✏️ Edit tasks</button>
+          <button id="exportTasksButton" type="button">💾 Export</button>
+          <button id="importTasksButton" type="button">📂 Import</button>
+          <input id="importTasksFile" type="file" accept=".json,application/json" hidden>
+        </span>
+      </h1>
+
+      <form id="taskForm" class="todo-input-group">
+        <input id="taskInput" type="text" maxlength="200" placeholder="Add a personal task..." aria-label="New personal task" required>
+        <div class="priority-buttons" aria-label="Choose task priority">
+          <button type="button" class="btn-low" data-priority="green" aria-pressed="false">Low · Purple</button>
+          <button type="button" class="btn-medium" data-priority="orange" aria-pressed="true">Medium · Orange</button>
+          <button type="button" class="btn-high" data-priority="red" aria-pressed="false">High · Red</button>
+        </div>
+        <label class="difficulty-input" for="newTaskDifficulty">
+          Difficulty (1 easiest–10 hardest)
+          <select id="newTaskDifficulty" aria-label="Task difficulty, 1 easiest and 10 hardest">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
+        </label>
+        <label class="anxiety-input" for="newTaskAnxiety">
+          Anxiety (1 least–10 most)
+          <select id="newTaskAnxiety" aria-label="Task anxiety, 1 least and 10 most">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
+        </label>
+        <label class="urgency-input" for="newTaskUrgency">
+          Urgency (1 least–10 most)
+          <select id="newTaskUrgency" aria-label="Task urgency, 1 least and 10 most">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
+        </label>
+        <button class="add-task-btn" type="submit">Add task</button>
+      </form>
+
+      <div class="task-sort">
+        <label for="taskSort">Order within groups:</label>
+        <select id="taskSort">
+          <option value="manual">Manual</option>
+          <option value="difficulty-asc">Easiest first</option>
+          <option value="difficulty-desc">Hardest first</option>
+          <option value="combined-asc">Lowest combined score first</option>
+          <option value="combined-desc">Highest combined score first</option>
+        </select>
+      </div>
+      <div id="taskColumns" class="task-columns"></div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'personal_life_tasks_v1';
+    const PRIORITIES = [
+      { id: 'red', label: 'High · Red' },
+      { id: 'orange', label: 'Medium · Orange' },
+      { id: 'green', label: 'Low · Purple' }
+    ];
+    let tasks = [];
+    let editMode = false;
+    let selectedPriority = 'orange';
+    let taskSort = 'manual';
+    let lastDate = getDateKey();
+
+    function getDateKey(date = new Date()) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function createId() {
+      return window.crypto && typeof window.crypto.randomUUID === 'function'
+        ? window.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function loadState() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+      const value = JSON.parse(stored);
+      if (!value || typeof value !== 'object' || !Array.isArray(value.tasks)) {
+        throw new Error('The saved personal task data has an invalid format.');
+      }
+      tasks = value.tasks.map(task => {
+        if (!task || typeof task.text !== 'string' || !task.text.trim() ||
+            !PRIORITIES.some(priority => priority.id === task.priority)) return null;
+        return {
+          id: String(task.id || createId()),
+          text: task.text.trim().slice(0, 200),
+          priority: task.priority,
+          difficulty: Number.isInteger(Number(task.difficulty)) &&
+            Number(task.difficulty) >= 1 && Number(task.difficulty) <= 10
+            ? Number(task.difficulty)
+            : 5,
+          anxiety: Number.isInteger(Number(task.anxiety)) &&
+            Number(task.anxiety) >= 1 && Number(task.anxiety) <= 10
+            ? Number(task.anxiety)
+            : 5,
+          urgency: Number.isInteger(Number(task.urgency)) &&
+            Number(task.urgency) >= 1 && Number(task.urgency) <= 10
+            ? Number(task.urgency)
+            : 5,
+          done: task.done === true
+        };
+      }).filter(Boolean);
+      if (['manual', 'difficulty-asc', 'difficulty-desc', 'combined-asc', 'combined-desc']
+        .includes(value.taskSort)) {
+        taskSort = value.taskSort;
+      }
+      if (typeof value.lastDate === 'string') lastDate = value.lastDate;
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ lastDate, tasks, taskSort }));
+        return true;
+      } catch (error) {
+        alert(`Personal tasks could not be saved. ${error.message}`);
+        return false;
+      }
+    }
+
+    async function exportTasks() {
+      const filename = `personal-tasks-${getDateKey()}.json`;
+      const data = { lastDate, tasks, taskSort };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      if (typeof window.showSaveFilePicker === 'function') {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{
+              description: 'JSON backup',
+              accept: { 'application/json': ['.json'] }
+            }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+        } catch (error) {
+          if (error.name !== 'AbortError') alert(`Personal tasks could not be exported. ${error.message}`);
+        }
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function importTasks(event) {
+      const input = event.target;
+      const file = input.files && input.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const previousState = { tasks, lastDate, taskSort };
+        try {
+          const value = JSON.parse(reader.result);
+          if (!value || typeof value !== 'object' || !Array.isArray(value.tasks)) {
+            throw new Error('The selected file is not a personal task backup.');
+          }
+          if (value.tasks.some(task => !task || typeof task.text !== 'string' || !task.text.trim() ||
+              !PRIORITIES.some(priority => priority.id === task.priority))) {
+            throw new Error('The backup contains an invalid task.');
+          }
+
+          tasks = value.tasks.map(task => ({
+            id: String(task.id || createId()),
+            text: task.text.trim().slice(0, 200),
+            priority: task.priority,
+            difficulty: Number.isInteger(Number(task.difficulty)) &&
+              Number(task.difficulty) >= 1 && Number(task.difficulty) <= 10
+              ? Number(task.difficulty)
+              : 5,
+            anxiety: Number.isInteger(Number(task.anxiety)) &&
+              Number(task.anxiety) >= 1 && Number(task.anxiety) <= 10
+              ? Number(task.anxiety)
+              : 5,
+            urgency: Number.isInteger(Number(task.urgency)) &&
+              Number(task.urgency) >= 1 && Number(task.urgency) <= 10
+              ? Number(task.urgency)
+              : 5,
+            done: task.done === true
+          }));
+          taskSort = ['manual', 'difficulty-asc', 'difficulty-desc', 'combined-asc', 'combined-desc']
+            .includes(value.taskSort) ? value.taskSort : 'manual';
+          if (typeof value.lastDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.lastDate) &&
+              new Date(`${value.lastDate}T00:00:00`).toISOString().slice(0, 10) === value.lastDate) {
+            lastDate = value.lastDate;
+          } else {
+            lastDate = getDateKey();
+          }
+
+          if (!saveState()) {
+            tasks = previousState.tasks;
+            lastDate = previousState.lastDate;
+            taskSort = previousState.taskSort;
+            render();
+            return;
+          }
+          render();
+          alert('Personal task backup imported successfully.');
+        } catch (error) {
+          tasks = previousState.tasks;
+          lastDate = previousState.lastDate;
+          taskSort = previousState.taskSort;
+          alert(`Personal task backup could not be imported. ${error.message}`);
+        } finally {
+          input.value = '';
+        }
+      };
+      reader.onerror = () => {
+        alert('The selected personal task backup could not be read.');
+        input.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    function handleRollover() {
+      const today = getDateKey();
+      if (today === lastDate) return;
+      tasks = tasks.filter(task => !task.done);
+      lastDate = today;
+      saveState();
+    }
+
+    function createElement(tag, className, text) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      if (text !== undefined) element.textContent = text;
+      return element;
+    }
+
+    function render() {
+      const container = document.getElementById('taskColumns');
+      container.replaceChildren();
+      const columns = new Map();
+      const sortControl = document.getElementById('taskSort');
+      sortControl.value = taskSort;
+      const taskSortDirection = ['difficulty-asc', 'combined-asc'].includes(taskSort) ? 1
+        : ['difficulty-desc', 'combined-desc'].includes(taskSort) ? -1
+          : 0;
+      const sortByCombinedValues = taskSort.startsWith('combined-');
+      const priorityRank = { red: 0, orange: 1, green: 2 };
+      const orderedTasks = tasks
+        .map((task, index) => ({ task, index }))
+        .sort((a, b) => priorityRank[a.task.priority] - priorityRank[b.task.priority] ||
+          Number(a.task.done) - Number(b.task.done) ||
+          taskSortDirection * (sortByCombinedValues
+            ? (a.task.difficulty + a.task.anxiety + a.task.urgency) -
+              (b.task.difficulty + b.task.anxiety + b.task.urgency)
+            : a.task.difficulty - b.task.difficulty) ||
+          a.index - b.index)
+        .map(entry => entry.task);
+
+      PRIORITIES.forEach(priority => {
+        const column = createElement('section', 'task-column');
+        column.dataset.priority = priority.id;
+        column.appendChild(createElement('h2', '', priority.label));
+        const columnTasks = orderedTasks.filter(task => task.priority === priority.id);
+        if (!columnTasks.length) {
+          column.appendChild(createElement('p', 'empty-message', 'No tasks'));
+        }
+        columns.set(priority.id, { column, tasks: columnTasks });
+        container.appendChild(column);
+      });
+
+      orderedTasks.forEach(task => {
+        const row = createElement('div', `task-row${task.done ? ' done' : ''}`);
+        row.draggable = editMode && taskSortDirection === 0;
+        row.dataset.taskId = task.id;
+        row.dataset.priority = task.priority;
+        row.dataset.done = String(task.done);
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = task.done;
+        checkbox.dataset.taskId = task.id;
+        checkbox.setAttribute('aria-label', `Mark ${task.text} ${task.done ? 'not done' : 'done'}`);
+        const label = createElement('span', 'task-label', task.text);
+        const combinedScore = (task.difficulty + task.anxiety + task.urgency) / 3;
+        const difficultyLabel = createElement('span', 'task-difficulty',
+          `Avg ${combinedScore.toFixed(1)}`);
+        difficultyLabel.title = `Difficulty ${task.difficulty}/10; anxiety ${task.anxiety}/10; urgency ${task.urgency}/10; combined average ${combinedScore.toFixed(1)}/10`;
+        difficultyLabel.setAttribute('aria-label',
+          `Difficulty ${task.difficulty} out of 10, anxiety ${task.anxiety} out of 10, urgency ${task.urgency} out of 10, combined average ${combinedScore.toFixed(1)} out of 10`);
+        difficultyLabel.hidden = editMode;
+
+        const actions = createElement('div', 'task-actions');
+        const difficultySelect = document.createElement('select');
+        difficultySelect.className = 'task-difficulty-select';
+        difficultySelect.dataset.difficultyTaskId = task.id;
+        difficultySelect.setAttribute('aria-label', `Difficulty for ${task.text}`);
+        for (let level = 1; level <= 10; level++) {
+          const option = createElement('option', '', `D${level}`);
+          option.value = String(level);
+          difficultySelect.appendChild(option);
+        }
+        difficultySelect.value = String(task.difficulty);
+        difficultySelect.title = 'Difficulty rating (1-10)';
+        difficultySelect.hidden = !editMode;
+        const anxietySelect = document.createElement('select');
+        anxietySelect.className = 'task-anxiety-select';
+        anxietySelect.dataset.anxietyTaskId = task.id;
+        anxietySelect.setAttribute('aria-label', `Anxiety rating for ${task.text}`);
+        for (let level = 1; level <= 10; level++) {
+          const option = createElement('option', '', `A${level}`);
+          option.value = String(level);
+          anxietySelect.appendChild(option);
+        }
+        anxietySelect.value = String(task.anxiety);
+        anxietySelect.title = 'Anxiety rating (1-10)';
+        anxietySelect.hidden = !editMode;
+        const urgencySelect = document.createElement('select');
+        urgencySelect.className = 'task-urgency-select';
+        urgencySelect.dataset.urgencyTaskId = task.id;
+        urgencySelect.setAttribute('aria-label', `Urgency for ${task.text}`);
+        for (let level = 1; level <= 10; level++) {
+          const option = createElement('option', '', `U${level}`);
+          option.value = String(level);
+          urgencySelect.appendChild(option);
+        }
+        urgencySelect.value = String(task.urgency);
+        urgencySelect.title = 'Urgency rating (1-10)';
+        urgencySelect.hidden = !editMode;
+        const priority = document.createElement('select');
+        priority.className = 'task-priority';
+        priority.dataset.taskId = task.id;
+        priority.setAttribute('aria-label', `Priority for ${task.text}`);
+        [['green', 'Low'], ['orange', 'Medium'], ['red', 'High']].forEach(([value, name]) => {
+          const option = createElement('option', '', name);
+          option.value = value;
+          priority.appendChild(option);
+        });
+        priority.value = task.priority;
+        priority.hidden = !editMode;
+
+        const sameGroup = orderedTasks.filter(item =>
+          item.priority === task.priority && item.done === task.done);
+        const index = sameGroup.findIndex(item => item.id === task.id);
+        const drag = createElement('button', 'drag-handle', '⠿');
+        drag.type = 'button';
+        drag.setAttribute('aria-label', `Drag ${task.text} to reorder`);
+        drag.hidden = !editMode || taskSortDirection !== 0;
+        const up = createElement('button', 'move-task', '↑');
+        up.type = 'button';
+        up.dataset.moveTaskId = task.id;
+        up.dataset.direction = '-1';
+        up.disabled = index === 0;
+        up.hidden = !editMode || taskSortDirection !== 0;
+        up.setAttribute('aria-label', `Move ${task.text} up`);
+        const down = createElement('button', 'move-task', '↓');
+        down.type = 'button';
+        down.dataset.moveTaskId = task.id;
+        down.dataset.direction = '1';
+        down.disabled = index === sameGroup.length - 1;
+        down.hidden = !editMode || taskSortDirection !== 0;
+        down.setAttribute('aria-label', `Move ${task.text} down`);
+        const remove = createElement('button', '', '×');
+        remove.type = 'button';
+        remove.dataset.deleteTaskId = task.id;
+        remove.hidden = !editMode;
+        remove.setAttribute('aria-label', `Delete ${task.text}`);
+
+        actions.append(priority, difficultySelect, anxietySelect, urgencySelect, drag, up, down, remove);
+        row.append(checkbox, label, difficultyLabel, actions);
+        columns.get(task.priority).column.appendChild(row);
+      });
+    }
+
+    function selectPriority(priority) {
+      if (!PRIORITIES.some(item => item.id === priority)) return;
+      selectedPriority = priority;
+      document.querySelectorAll('.priority-buttons [data-priority]').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.priority === priority));
+      });
+    }
+
+    document.getElementById('taskForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const input = document.getElementById('taskInput');
+      const text = input.value.trim();
+      if (!text) {
+        input.focus();
+        return;
+      }
+      const difficulty = Number(document.getElementById('newTaskDifficulty').value);
+      const anxiety = Number(document.getElementById('newTaskAnxiety').value);
+      const urgency = Number(document.getElementById('newTaskUrgency').value);
+      tasks.push({
+        id: createId(),
+        text: text.slice(0, 200),
+        priority: selectedPriority,
+        difficulty,
+        anxiety,
+        urgency,
+        done: false
+      });
+      input.value = '';
+      saveState();
+      render();
+      input.focus();
+    });
+
+    document.querySelector('.priority-buttons').addEventListener('click', event => {
+      const button = event.target.closest('button[data-priority]');
+      if (button) selectPriority(button.dataset.priority);
+    });
+
+    document.getElementById('editToggle').addEventListener('click', event => {
+      editMode = !editMode;
+      event.currentTarget.textContent = editMode ? 'Done editing' : '✏️ Edit tasks';
+      event.currentTarget.setAttribute('aria-pressed', String(editMode));
+      render();
+    });
+
+    document.getElementById('exportTasksButton').addEventListener('click', exportTasks);
+    document.getElementById('importTasksButton').addEventListener('click', () =>
+      document.getElementById('importTasksFile').click());
+    document.getElementById('importTasksFile').addEventListener('change', importTasks);
+
+    document.getElementById('taskColumns').addEventListener('change', event => {
+      const taskId = event.target.dataset.taskId;
+      const task = tasks.find(item => item.id === taskId);
+      const urgencyTask = tasks.find(item => item.id === event.target.dataset.urgencyTaskId);
+      if (event.target.matches('select.task-urgency-select')) {
+        const urgency = Number(event.target.value);
+        if (!editMode || !urgencyTask || !Number.isInteger(urgency) || urgency < 1 || urgency > 10) return;
+        urgencyTask.urgency = urgency;
+        saveState();
+        render();
+        return;
+      }
+      const anxietyTask = tasks.find(item => item.id === event.target.dataset.anxietyTaskId);
+      if (event.target.matches('select.task-anxiety-select')) {
+        const anxiety = Number(event.target.value);
+        if (!editMode || !anxietyTask || !Number.isInteger(anxiety) || anxiety < 1 || anxiety > 10) return;
+        anxietyTask.anxiety = anxiety;
+        saveState();
+        render();
+        return;
+      }
+      const difficultyTask = tasks.find(item => item.id === event.target.dataset.difficultyTaskId);
+      if (event.target.matches('select.task-difficulty-select')) {
+        const difficulty = Number(event.target.value);
+        if (!editMode || !difficultyTask || !Number.isInteger(difficulty) ||
+            difficulty < 1 || difficulty > 10) return;
+        difficultyTask.difficulty = difficulty;
+        saveState();
+        render();
+        return;
+      }
+      if (!task) return;
+      if (event.target.matches('select.task-priority')) {
+        if (!editMode || !PRIORITIES.some(item => item.id === event.target.value)) return;
+        task.priority = event.target.value;
+      } else if (event.target.matches('input[type="checkbox"]')) {
+        task.done = event.target.checked;
+      } else {
+        return;
+      }
+      saveState();
+      render();
+    });
+
+    document.getElementById('taskSort').addEventListener('change', event => {
+      if (!['manual', 'difficulty-asc', 'difficulty-desc', 'combined-asc', 'combined-desc']
+        .includes(event.currentTarget.value)) return;
+      taskSort = event.currentTarget.value;
+      saveState();
+      render();
+    });
+
+    document.getElementById('taskColumns').addEventListener('click', event => {
+      const move = event.target.closest('button[data-move-task-id]');
+      if (move && editMode) {
+        const task = tasks.find(item => item.id === move.dataset.moveTaskId);
+        if (!task) return;
+        const group = tasks.filter(item => item.priority === task.priority && item.done === task.done);
+        const index = group.findIndex(item => item.id === task.id);
+        const target = group[index + Number(move.dataset.direction)];
+        if (!target) return;
+        const currentIndex = tasks.indexOf(task);
+        const targetIndex = tasks.indexOf(target);
+        [tasks[currentIndex], tasks[targetIndex]] = [tasks[targetIndex], tasks[currentIndex]];
+        saveState();
+        render();
+        return;
+      }
+
+      const remove = event.target.closest('button[data-delete-task-id]');
+      if (!remove || !editMode) return;
+      tasks = tasks.filter(task => task.id !== remove.dataset.deleteTaskId);
+      saveState();
+      render();
+    });
+
+    const taskColumns = document.getElementById('taskColumns');
+    taskColumns.addEventListener('dragstart', event => {
+      const row = event.target.closest('.task-row');
+      if (!editMode || taskSort !== 'manual' || !row) {
+        event.preventDefault();
+        return;
+      }
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', row.dataset.taskId);
+      row.classList.add('is-dragging');
+    });
+
+    taskColumns.addEventListener('dragover', event => {
+      const target = event.target.closest('.task-row');
+      const source = taskColumns.querySelector('.task-row.is-dragging');
+      if (!editMode || taskSort !== 'manual' || !target || !source || target === source ||
+          target.dataset.priority !== source.dataset.priority || target.dataset.done !== source.dataset.done) return;
+      event.preventDefault();
+      const after = event.clientY > target.getBoundingClientRect().top + target.offsetHeight / 2;
+      target.classList.toggle('drop-before', !after);
+      target.classList.toggle('drop-after', after);
+      event.dataTransfer.dropEffect = 'move';
+    });
+
+    taskColumns.addEventListener('dragleave', event => {
+      const row = event.target.closest('.task-row');
+      if (row && !row.contains(event.relatedTarget)) row.classList.remove('drop-before', 'drop-after');
+    });
+
+    taskColumns.addEventListener('drop', event => {
+      const targetRow = event.target.closest('.task-row');
+      const source = tasks.find(task => task.id === event.dataTransfer.getData('text/plain'));
+      const target = targetRow && tasks.find(task => task.id === targetRow.dataset.taskId);
+      if (!editMode || taskSort !== 'manual' || !source || !target || source.id === target.id ||
+          source.priority !== target.priority || source.done !== target.done) return;
+      event.preventDefault();
+      const group = tasks.filter(task => task.priority === source.priority && task.done === source.done);
+      const [moved] = group.splice(group.findIndex(task => task.id === source.id), 1);
+      let targetIndex = group.findIndex(task => task.id === target.id);
+      if (event.clientY > targetRow.getBoundingClientRect().top + targetRow.offsetHeight / 2) targetIndex++;
+      group.splice(targetIndex, 0, moved);
+      let index = 0;
+      tasks = tasks.map(task => task.priority === source.priority && task.done === source.done
+        ? group[index++]
+        : task);
+      saveState();
+      render();
+    });
+
+    taskColumns.addEventListener('dragend', () => {
+      taskColumns.querySelectorAll('.task-row').forEach(row =>
+        row.classList.remove('is-dragging', 'drop-before', 'drop-after'));
+    });
+
+    try {
+      loadState();
+      handleRollover();
+      render();
+      saveState();
+    } catch (error) {
+      alert(`Personal task data could not be loaded. ${error.message}`);
+      render();
+    }
+  </script>
+</body>
+</html>
